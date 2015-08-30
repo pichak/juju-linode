@@ -4,51 +4,49 @@ import time
 
 from juju_linode.exceptions import ConfigError, ProviderError
 from juju_linode.client import Client
+from juju_linode.domain_manager import DomainManager
 from juju_linode.constraints import init
 
 log = logging.getLogger("juju.linode")
 
 
-def factory():
-    cfg = Linode.get_config()
+def factory(config):
+    cfg = Linode.get_config(config)
     ans = Linode(cfg)
     init(ans.client)
     return ans
 
 
-def validate():
-    Linode.get_config()
+def validate(config):
+    Linode.get_config(config)
 
 
 class Linode(object):
 
-    def __init__(self, config, client=None):
+    def __init__(self, config, client=None, domain_manager=None):
         self.config = config
         if client is None:
             self.client = Client.connect(config)
         else:
             self.client = client
 
+        if domain_manager is None:
+            self.domain_manager =  DomainManager.connect(config)
+        else:
+            self.domain_manager =  domain_manager
+
     @property
     def version(self):
         return self.client.version
 
     @classmethod
-    def get_config(cls):
-        provider_conf = {}
-
-        api_key = os.environ.get('LINODE_API_KEY')
-        if api_key:
-            provider_conf['LINODE_API_KEY'] = api_key
-
-        stack_script_id = os.environ.get('LINODE_STACK_SCRIPT_ID')
-        if api_key:
-            provider_conf['LINODE_STACK_SCRIPT_ID'] = stack_script_id
-
-        if not 'LINODE_API_KEY' in provider_conf:
+    def get_config(cls, config):
+        provider_conf = config.get_current_env_conf()
+        
+        if not 'linode-api-key' in provider_conf:
             raise ConfigError("Missing linode api credentials")
 
-        if not 'LINODE_STACK_SCRIPT_ID' in provider_conf:
+        if not 'linode-stack-script-id' in provider_conf:
             raise ConfigError("Missing linode stack script id")
         return provider_conf
 
@@ -59,11 +57,23 @@ class Linode(object):
         return self.client.get_linode_instace(instance_id)
 
     def launch_instance(self, params):
+
+        domain_postfix = params['domain_postfix']
+        instance_params = {'datacenter_id': params['datacenter_id'], 'plan_id': params['plan_id']}
+
         # create linode Instance
-        instance = self.client.create_linode_instace(**params)
+        instance = self.client.create_linode_instace(**instance_params)
+
+        # assign a domain to machine if there is domain_postfix in constraints
+        if domain_postfix is not None:
+            full_domain_name = instance.label+'.'+domain_postfix
+            self.domain_manager.create_subdomain(full_domain_name, instance.ip_addresses[0])
+            self.domain_manager.create_subdomain_alias(domain_postfix, full_domain_name, instance.label)
+            instance.remote_access_name = full_domain_name
+            time.sleep(30) # wait for subdomain to register on DNS servers
 
         # create linode disk
-        disk = self.client.linode_disk_createfromstackscript(instance, self.config['LINODE_STACK_SCRIPT_ID'], str(time.time()) )
+        disk = self.client.linode_disk_createfromstackscript(instance, self.config['linode-stack-script-id'], str(time.time()) )
 
         # create swap
         swap = self.client.create_linode_swap(instance)

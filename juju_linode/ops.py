@@ -36,7 +36,7 @@ class MachineRegister(MachineAdd):
         instance = super(MachineRegister, self).run()
         try:
             machine_id = self.env.add_machine(
-                "ssh:ubuntu@%s" % instance.ip_addresses[0])
+                "ssh:ubuntu@%s" % instance.remote_access_name)
         except:
             self.provider.terminate_instance(instance.linodeid)
             raise

@@ -1,5 +1,3 @@
-import os
-
 from juju_linode.exceptions import ProviderAPIError
 
 import requests
@@ -137,7 +135,7 @@ class Client(object):
                  linodeid=info['LINODEID'], alert_bwout_threshold=info['ALERT_BWOUT_THRESHOLD'],alert_bwout_enabled=info['ALERT_BWOUT_ENABLED'],
                  backupsenabled=info['BACKUPSENABLED'], alert_cpu_threshold=info['ALERT_CPU_THRESHOLD'], planid=info['PLANID'],
                  backupweeklyday=info['BACKUPWEEKLYDAY'], label=info['LABEL'],lpm_displaygroup=info['LPM_DISPLAYGROUP'],
-                 totalxfer=info['TOTALXFER'], ip_addresses=ip_addresses) )
+                 totalxfer=info['TOTALXFER'], ip_addresses=ip_addresses, remote_access_name=ip_addresses[0]) )
 
     def get_linode_instaces(self):
         data = self.request("linode.list")
@@ -239,8 +237,8 @@ class Client(object):
 
 
     @classmethod
-    def connect(cls, config=os.environ):
-        key = config.get('LINODE_API_KEY')
+    def connect(cls, config):
+        key = config.get('linode-api-key')
         if not key:
             raise KeyError("Missing api credentials")
         else:
