@@ -15,7 +15,7 @@ class Config(object):
     def connect_provider(self):
         """Connect to linode.
         """
-        return provider.factory()
+        return provider.factory(self)
 
     def connect_environment(self):
         """Return a websocket connection to the environment.
@@ -23,7 +23,7 @@ class Config(object):
         return Environment(self)
 
     def validate(self):
-        provider.validate()
+        provider.validate(self)
         self.get_env_name()
 
     @property
@@ -69,16 +69,23 @@ class Config(object):
             with open(env_ptr) as fh:
                 return fh.read().strip()
 
-        with open(self.get_env_conf()) as fh:
+        with open(self.get_env_conf_file()) as fh:
             conf = yaml.safe_load(fh.read())
             if not 'default' in conf:
                 raise ConfigError("No Environment specified")
             return conf['default']
 
-    def get_env_conf(self):
+    def get_env_conf_file(self):
         """Get the environment config file.
         """
         conf = os.path.join(self.juju_home, 'environments.yaml')
         if not os.path.exists(conf):
             raise ConfigError("Juju environments.yaml not found %s" % conf)
         return conf
+
+    def get_current_env_conf(self):
+        """Get current juju environment conf as key value
+        """
+        with open(self.get_env_conf_file()) as fh:
+            conf = yaml.safe_load(fh.read())
+            return conf['environments'][self.get_env_name()]
