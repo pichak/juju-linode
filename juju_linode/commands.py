@@ -30,7 +30,7 @@ class BaseCommand(object):
         """Check for provider ssh key, and configured environments.yaml.
         """
         env_name = self.config.get_env_name()
-        with open(self.config.get_env_conf()) as fh:
+        with open(self.config.get_env_conf_file()) as fh:
             conf = yaml.safe_load(fh.read())
             if not 'environments' in conf:
                 raise ConfigError(
@@ -66,9 +66,9 @@ class Bootstrap(BaseCommand):
     """
     def run(self):
         self.check_preconditions()
-        plan, datacenter = self.solve_constraints()
+        plan, datacenter, domain_postfix = self.solve_constraints()
         log.info("Launching bootstrap host (eta 5m)...")
-        params = dict(datacenter_id=datacenter, plan_id=plan)
+        params = dict(datacenter_id=datacenter, plan_id=plan, domain_postfix=domain_postfix)
 
         op = ops.MachineAdd(
             self.provider, self.env, params)
@@ -76,7 +76,7 @@ class Bootstrap(BaseCommand):
 
         log.info("Bootstrapping environment...")
         try:
-            self.env.bootstrap_jenv(instance.ip_addresses[0])
+            self.env.bootstrap_jenv(instance.remote_access_name)
         except:
             self.provider.terminate_instance(instance.linodeid)
             raise
@@ -99,7 +99,7 @@ class ListMachines(BaseCommand):
 
         allmachines = self.config.options.all
         for m in self.provider.get_instances():
-            if not allmachines and not m.name.startswith('%s-' % env_name):
+            if not allmachines:
                 continue
 
             if header:
@@ -125,10 +125,10 @@ class AddMachine(BaseCommand):
 
     def run(self):
         self.check_preconditions()
-        plan, datacenter = self.solve_constraints()
+        plan, datacenter, domain_postfix = self.solve_constraints()
         log.info("Launching %d instances...", self.config.num_machines)
 
-        params = dict(datacenter_id=datacenter, plan_id=plan)
+        params = dict(datacenter_id=datacenter, plan_id=plan, domain_postfix=domain_postfix)
 
         op_class = ops.MachineRegister
 
@@ -169,7 +169,7 @@ class TerminateMachine(BaseCommand):
                      'instance_id': machines[m]['instance-id'],
                      'machine_id': m})
 
-        address_map = dict([(d.ip_addresses[0], d) for
+        address_map = dict([(d.remote_access_name, d) for
                             d in self.provider.get_instances()])
         if not remove:
             return status, address_map

@@ -60,7 +60,7 @@ def parse_constraints(constraints):
         c[k.strip()] = v.strip()
 
     unknown = set(c).difference(
-        set(['datacenter', 'plan']))
+        set(['datacenter', 'plan', 'domain_postfix']))
     if unknown:
         raise ConstraintError("Unknown constraints %s" % (" ".join(unknown)))
 
@@ -82,6 +82,9 @@ def parse_constraints(constraints):
         else:
             raise ConstraintError("Unknown datacenter %s" % c['datacenter'])
 
+    if 'domain_postfix' in c:
+        c_out['domain_postfix'] = c['domain_postfix']
+
     return c_out
 
 
@@ -92,9 +95,10 @@ def solve_constraints(constraints):
     constraints = parse_constraints(constraints)
     constraints['datacenter'] = constraints.pop('datacenter', DEFAULT_DATACENTER)
     constraints['plan'] = constraints.pop('plan', DEFAULT_PLAN)
+    constraints['domain_postfix'] = constraints.pop('domain_postfix', None)
     print(constraints)
 
-    return constraints['plan'], constraints['datacenter']
+    return constraints['plan'], constraints['datacenter'], constraints['domain_postfix']
 
 
 def get_images(client):
