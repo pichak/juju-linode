@@ -53,7 +53,7 @@ class MachineDestroy(MachineOp):
         log.debug("Destroying instance %s", self.params['instance_id'])
         while True:
             try:
-                self.provider.terminate_instance(self.params['instance_id'])
+                self.provider.terminate_instance(self.params['instance_id'], self.params['domain_name'])
                 break
             except ProviderAPIError, e:
                 # The vm has a pending event, sleep and try again.

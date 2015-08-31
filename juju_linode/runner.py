@@ -12,9 +12,8 @@ log = logging.getLogger("juju.linode")
 
 class Runner(object):
 
-    DEFAULT_NUM_RUNNER = 4
-
-    def __init__(self):
+    def __init__(self, default_num_runner):
+        self.default_num_runner = default_num_runner
         self.jobs = Queue()
         self.results = Queue()
         self.job_count = 0
@@ -29,7 +28,7 @@ class Runner(object):
         auto = not self.started
 
         if auto:
-            self.start(min(self.DEFAULT_NUM_RUNNER, self.job_count))
+            self.start(min(self.default_num_runner, self.job_count))
 
         for i in range(self.job_count):
             self.job_count -= 1

@@ -64,39 +64,55 @@ class Linode(object):
         # create linode Instance
         instance = self.client.create_linode_instace(**instance_params)
 
-        # assign a domain to machine if there is domain_postfix in constraints
-        if domain_postfix is not None:
-            full_domain_name = instance.label+'.'+domain_postfix
-            self.domain_manager.create_subdomain(full_domain_name, instance.ip_addresses[0])
-            self.domain_manager.create_subdomain_alias(domain_postfix, full_domain_name, instance.label)
-            instance.remote_access_name = full_domain_name
-            time.sleep(30) # wait for subdomain to register on DNS servers
+        try:
 
-        # create linode disk
-        disk = self.client.linode_disk_createfromstackscript(instance, self.config['linode-stack-script-id'], str(time.time()) )
+            # assign a domain to machine if there is domain_postfix in constraints
+            if domain_postfix is not None:
+                full_domain_name = instance.label+'.'+domain_postfix
+                self.domain_manager.create_subdomain(full_domain_name, instance.ip_addresses[0])
+                self.domain_manager.create_subdomain_alias(domain_postfix, full_domain_name, instance.label)
+                instance.remote_access_name = full_domain_name
+                time.sleep(60) # wait for subdomain to register on DNS servers
 
-        # create swap
-        swap = self.client.create_linode_swap(instance)
 
-        #create linode config
-        disk_list = str(disk['DiskID']) + ',' + str(swap['DiskID'])
-        self.client.create_linode_config(instance, str(time.time()), disk_list )
+            try:
+                # create linode disk
+                disk = self.client.linode_disk_createfromstackscript(instance, self.config['linode-stack-script-id'], str(time.time()) )
 
-        # wait for all jobs before boot the linode instance
-        self.wait_on(instance)
+                # create swap
+                swap = self.client.create_linode_swap(instance)
 
-        # booting linode instance
-        self.client.linode_boot(instance)
+                #create linode config
+                disk_list = str(disk['DiskID']) + ',' + str(swap['DiskID'])
+                self.client.create_linode_config(instance, str(time.time()), disk_list )
 
-        # waiting for boot instance
-        self.wait_on(instance)
+                # wait for all jobs before boot the linode instance
+                self.wait_on(instance)
 
-        # wait for ssh service to start
-        time.sleep(10)
+                # booting linode instance
+                self.client.linode_boot(instance)
+
+                # waiting for boot instance
+                self.wait_on(instance)
+
+                # wait for ssh service to start
+                time.sleep(10)
+
+            except:
+                if domain_postfix is not None:
+                    full_domain_name = instance.label+'.'+domain_postfix
+                    self.domain_manager.destroy_subdomain(full_domain_name, instance.ip_addresses[0])
+                    self.domain_manager.destroy_subdomain_alias(domain_postfix, full_domain_name, instance.label)
+                raise
+
+        except:
+            log.debug("Error occurred, terminating instance")
+            self.terminate_instance(instance.linodeid)
+            raise
 
         return instance
 
-    def terminate_instance(self, instance_id):
+    def terminate_instance(self, instance_id, domain_name=None):
         instance = self.client.get_linode_instace(instance_id)
 
         # shutting down instance
@@ -108,6 +124,11 @@ class Linode(object):
         self.wait_on(instance)
 
         self.client.destroy_linode_instace(instance)
+
+        # delete instance's domain it it has one
+        if domain_name:
+            self.domain_manager.destroy_subdomain_alias(domain_name.replace(instance.label+".",""), domain_name, instance.label)
+            self.domain_manager.destroy_subdomain(domain_name, instance.ip_addresses[0])
 
     def wait_on(self, linode_instance):
         instance_pending_jobs = self.client.get_linode_pending_jobs(linode_instance)

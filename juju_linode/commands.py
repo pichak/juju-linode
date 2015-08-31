@@ -2,6 +2,7 @@ import logging
 import time
 import uuid
 import yaml
+import re
 
 from juju_linode import constraints
 from juju_linode.exceptions import ConfigError, PrecheckError
@@ -18,7 +19,7 @@ class BaseCommand(object):
         self.config = config
         self.provider = provider
         self.env = environment
-        self.runner = Runner()
+        self.runner = Runner(self.config.get_current_env_conf()['default-num-runner'])
 
     def solve_constraints(self):
         return constraints.solve_constraints(self.config.constraints)
@@ -171,6 +172,10 @@ class TerminateMachine(BaseCommand):
 
         address_map = dict([(d.remote_access_name, d) for
                             d in self.provider.get_instances()])
+
+        instance_list =  address_map.values()
+
+
         if not remove:
             return status, address_map
 
@@ -179,15 +184,24 @@ class TerminateMachine(BaseCommand):
 
         for m in remove:
             instance = None
-            if m['address']:
-                instance = address_map.get(m['address'])
+            domain_name = None;
+
+            temp = re.findall("linode(\d+)", m['instance_id'])
+            machine_linode_id = temp[0] if len(temp) > 0 and len(temp[0]) > 4 else None
+            if (machine_linode_id):
+                instances = [
+                    i for i in instance_list
+                    if machine_linode_id == str(i.linodeid)]
+                domain_name = m['address'];
             else:
                 instances = [
-                    i for i in address_map.values()
-                    if m['instance_id'] == i.name]
-                if len(instances) == 1:
-                    instance = instances[0]
-                    #instances['instance'] =
+                    i for i in instance_list
+                    if m['instance_id'] == i.remote_access_name]
+
+
+            if len(instances) == 1:
+                instance = instances[0]
+
             env_only = False  # Remove from only env or also provider.
             if instance is None:
                 log.warning(
@@ -204,7 +218,8 @@ class TerminateMachine(BaseCommand):
                 ops.MachineDestroy(
                     self.provider, self.env, {
                         'machine_id': m['machine_id'],
-                        'instance_id': instance_id},
+                        'instance_id': instance_id,
+                        'domain_name': domain_name},
                     env_only=env_only))
         for result in self.runner.iter_results():
             pass

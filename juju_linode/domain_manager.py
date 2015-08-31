@@ -46,6 +46,19 @@ class DomainManager(object):
                 "set": set_name,
                 "weight": 10 } ] ] });
 
+    def destroy_subdomain(self, domain_name, ip_address):
+        return self.request({"changes": [ [ "delete", { "name" : domain_name, "type" : "A", "data" : ip_address , "ttl" : 60 } ] ] });
+
+    def destroy_subdomain_alias(self, domain_name, alias_target, set_name):
+        return self.request({"changes": [ [ "delete", 
+            { "name" : domain_name, "type" : "A", 
+                "alias_target" : alias_target, 
+                "check_target_health": False, 
+                "policy": "weighted", 
+                "set": set_name,
+                "weight": 10 } ] ] });
+
+
     @classmethod
     def connect(cls, config):
         api_url = config.get('domain-manager-api-url')
