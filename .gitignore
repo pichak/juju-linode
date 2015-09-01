@@ -7,3 +7,5 @@ include
 build
 dist
 *.egg-info
+deploy
+deploy.conf

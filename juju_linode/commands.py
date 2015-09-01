@@ -170,14 +170,15 @@ class TerminateMachine(BaseCommand):
                      'instance_id': machines[m]['instance-id'],
                      'machine_id': m})
 
-        address_map = dict([(d.remote_access_name, d) for
-                            d in self.provider.get_instances()])
+        #address_map = dict([(d.remote_access_name, d) for
+        #                    d in self.provider.get_instances()])
+        address_map = None
 
-        instance_list =  address_map.values()
+        #instance_list =  address_map.values()
 
 
-        if not remove:
-            return status, address_map
+        #if not remove:
+        #    return status, address_map
 
         log.info("Terminating machines %s",
                  " ".join([m['machine_id'] for m in remove]))
@@ -188,19 +189,20 @@ class TerminateMachine(BaseCommand):
 
             temp = re.findall("linode(\d+)", m['instance_id'])
             machine_linode_id = temp[0] if len(temp) > 0 and len(temp[0]) > 4 else None
-            if (machine_linode_id):
-                instances = [
-                    i for i in instance_list
-                    if machine_linode_id == str(i.linodeid)]
-                domain_name = m['address'];
-            else:
-                instances = [
-                    i for i in instance_list
-                    if m['instance_id'] == i.remote_access_name]
+            
+            #instances = [
+            #    i for i in instance_list
+            #    if machine_linode_id == str(i.linodeid)]
+            instance = self.provider.get_instance(machine_linode_id)
+            domain_name = m['address'];
+            #else:
+            #    instances = [
+            #        i for i in instance_list
+            #        if m['instance_id'] == i.remote_access_name]
 
 
-            if len(instances) == 1:
-                instance = instances[0]
+            #if len(instances) == 1:
+            #    instance = instances[0]
 
             env_only = False  # Remove from only env or also provider.
             if instance is None:
